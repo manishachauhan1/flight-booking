@@ -1,0 +1,13 @@
+package com.flightbooking.enums;
+
+public enum ErrorCode {
+    FLIGHT_NOT_FOUND,
+    SEAT_UNAVAILABLE,
+    BOOKING_NOT_FOUND,
+    BOOKING_EXPIRED,
+    PRICE_CHANGED,
+    ILLEGAL_STATE,
+    CANCELLATION_INVALID,
+    VALIDATION_ERROR,
+    INTERNAL_ERROR
+}

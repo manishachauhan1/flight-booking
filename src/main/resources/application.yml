@@ -1,0 +1,44 @@
+server:
+  port: 8080
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:flightbooking
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+  jpa:
+    defer-datasource-initialization: true
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  sql:
+    init:
+      mode: always
+
+app:
+  price-token-secret: flight-booking-secret-key-2026
+  seat-lock-duration-minutes: 15
+  booking:
+    lock-duration-minutes: 15
+    max-passengers: 9
+  retry:
+    max-attempts: 3
+    backoff-delay-ms: 100
+  layover:
+    min-minutes: 60
+    max-minutes: 240
+  addon:
+    luggage-price-per-kg: 2.0
+    food-price: 15.0
+    insurance-price: 10.0
+  expiry-job:
+    rate-ms: 60000
