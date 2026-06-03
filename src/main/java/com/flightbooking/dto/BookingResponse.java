@@ -31,7 +31,11 @@ public class BookingResponse {
                 .map(FlightResultDTO.FlightLegDTO::new)
                 .collect(Collectors.toList());
         this.passengers = booking.getPassengers().stream()
-                .map(p -> new PassengerDTO(p.getName(), p.getAge(), p.getType(), p.getSeatNumber()))
+                .map(p -> {
+                    PassengerDTO dto = new PassengerDTO(p.getName(), p.getAge(), p.getType(), p.getSeatNumber());
+                    dto.setId(p.getId());
+                    return dto;
+                })
                 .collect(Collectors.toList());
     }
 
