@@ -2,6 +2,8 @@
 
 Spring Boot REST API for flight search (direct + multi-stop), booking with seat locking, and cancellations (full + partial). H2 in-memory DB — zero setup.
 
+> **📐 Diagrams below are mermaid — render on [github.com](https://github.com) natively. View locally with VS Code + [Markdown Preview Mermaid Support](https://marketplace.visualstudio.com/items?itemName=bierner.markdown-mermaid) or any mermaid-compatible previewer.**
+
 ---
 
 ## Problem Statement
@@ -164,7 +166,143 @@ mvn test && open target/site/jacoco/index.html
 
 ---
 
-## Design Patterns
+## HLD — System Architecture
+
+```mermaid
+graph TB
+    Client["Client / cURL"] -->|HTTP| FC["FlightSearchController<br/>GET /flights/search"]
+    Client -->|HTTP| BC["BookingController<br/>POST /bookings<br/>POST /confirm<br/>GET /bookings"]
+    Client -->|HTTP| CC["CancellationController<br/>POST /cancel"]
+
+    FC --> FSS["FlightSearchService"]
+    BC --> BS["BookingService"]
+    CC --> CT["CancellationTemplate<br/>(Template Method)"]
+
+    FSS --> RC["RouteCache<br/>(volatile Map, O(1) lookup)"]
+    FSS --> PS["PricingService<br/>(HMAC-SHA256 tokens)"]
+    BS --> PS
+    BS --> SLS["SeatLockService<br/>(PESSIMISTIC_WRITE)"]
+    BS --> PS
+    CT --> SLS
+
+    FSS --> FR["FlightRepository"]
+    BS --> BR["BookingRepository"]
+    BS --> SR["SeatRepository"]
+    SLS --> SR
+    CT --> BR
+
+    FR --> H2[("H2 In-Memory<br/>Database")]
+    BR --> H2
+    SR --> H2
+
+    JE["BookingExpiryJob<br/>(@Scheduled 60s)"] --> BR
+    JE --> SLS
+
+    style Client fill:#e1f5fe,stroke:#0288d1
+    style FC fill:#fff3e0,stroke:#f57c00
+    style BC fill:#fff3e0,stroke:#f57c00
+    style CC fill:#fff3e0,stroke:#f57c00
+    style H2 fill:#f3e5f5,stroke:#7b1fa2
+```
+
+## LLD — Design Details
+
+### Booking State Machine
+
+```mermaid
+stateDiagram-v2
+    [*] --> INITIATED
+    INITIATED --> SEAT_LOCKED : Seats locked
+    INITIATED --> EXPIRED : Timeout
+    SEAT_LOCKED --> CONFIRMED : Confirm
+    SEAT_LOCKED --> EXPIRED : Timeout
+    SEAT_LOCKED --> CANCELLED : Cancel
+    CONFIRMED --> CANCELLED : Cancel (full/partial)
+    EXPIRED --> [*]
+    CANCELLED --> [*]
+```
+
+### Template Method — Cancellation Hierarchy
+
+```mermaid
+classDiagram
+    class StepHandler~T, U~ {
+        <<interface>>
+        +handle(T request) U
+    }
+    class CancellationHandler {
+        <<interface>>
+    }
+    class CancellationTemplate {
+        <<abstract>>
+        #BookingRepository bookingRepository
+        #SeatLockService seatLockService
+        +handle(CancellationContext ctx) CancellationResponse
+        #validateCancellation(Booking, CancellationRequest)
+        #releaseSeats(Booking, CancellationRequest)
+        #updateAfterCancellation(Booking, CancellationRequest)*
+    }
+    class FullCancellationHandler {
+        #updateAfterCancellation(): status = CANCELLED
+    }
+    class PartialCancellationHandler {
+        #updateAfterCancellation(): remove passengers
+    }
+
+    StepHandler <|-- CancellationHandler
+    CancellationHandler <|.. CancellationTemplate
+    CancellationTemplate <|-- FullCancellationHandler
+    CancellationTemplate <|-- PartialCancellationHandler
+```
+
+### Concurrency Design
+
+```mermaid
+flowchart LR
+    subgraph Seat["Seat Locking"]
+        S1["User A locks seat A1<br/>@Lock(PESSIMISTIC_WRITE)<br/>SELECT ... FOR UPDATE"] -->|"commits"| S2["Seat A1 locked"]
+        S3["User B tries same seat"] -->|"waits until tx commits"| S4["User B gets<br/>SeatUnavailableException"]
+    end
+
+    subgraph Inventory["Flight Inventory"]
+        I1["User A books: version=1"] -->|"save"| I2["version → 2"]
+        I3["User B reads same flight<br/>version=1"] -->|"save"| I4["OptimisticLockException<br/>@Retryable retries 3×"]
+    end
+
+    subgraph Expiry["Booking Expiry"]
+        E1["@Scheduled(60s)"] --> E2["Find expired bookings"]
+        E2 --> E3["REQUIRES_NEW<br/>per booking"]
+        E3 --> E4["Release seats<br/>Status → EXPIRED"]
+    end
+```
+
+### Price Token Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant FSS as FlightSearchService
+    participant PS as PricingService
+    participant BS as BookingService
+
+    C->>FSS: GET /search (source, dest, date)
+    FSS->>FSS: RouteCache.lookup() → routes
+    FSS->>PS: generatePriceToken(flights, price)
+    PS->>PS: HMAC(sorted flight IDs + "|" + price, secret)
+    PS-->>FSS: token
+    FSS-->>C: response + priceToken
+
+    Note over C,BS: Time passes... price may change
+
+    C->>BS: POST /bookings (flightIds, priceToken)
+    BS->>PS: verifyPriceToken(flights, token)
+    PS->>PS: Re-compute HMAC(flight IDs + current price)
+    alt token matches
+        PS-->>BS: OK → proceed
+    else token doesn't match
+        PS-->>BS: PriceChangedException (409)
+    end
+```
 
 | Pattern | What & Why |
 |---------|------------|
