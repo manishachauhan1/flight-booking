@@ -52,7 +52,7 @@ public class BookingService {
     }
 
     @Transactional
-    public BookingResponse initiateBooking(BookingRequest request) {
+    public BookingResponse proceedBooking(BookingRequest request) {
         List<Flight> flights = flightRepository.findAllById(request.getFlightIds());
         if (flights.size() != request.getFlightIds().size()) {
             throw new FlightNotFoundException(request.getFlightIds().get(0));

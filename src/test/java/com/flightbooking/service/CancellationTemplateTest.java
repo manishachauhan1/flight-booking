@@ -10,7 +10,7 @@ import com.flightbooking.enums.BookingStatus;
 import com.flightbooking.enums.CancellationType;
 import com.flightbooking.enums.PassengerType;
 import com.flightbooking.exception.BookingNotFoundException;
-import com.flightbooking.exception.CancellationInvalidException;
+import com.flightbooking.exception.InvalidCancellationException;
 import com.flightbooking.repository.BookingRepository;
 import com.flightbooking.service.impl.FullCancellationHandler;
 import com.flightbooking.service.impl.PartialCancellationHandler;
@@ -125,7 +125,7 @@ class CancellationTemplateTest {
         bookingDb.put("PNR123", booking);
 
         CancellationContext ctx = new CancellationContext("PNR123", new CancellationRequest(CancellationType.FULL));
-        assertThrows(CancellationInvalidException.class, () -> fullHandler.handle(ctx));
+        assertThrows(InvalidCancellationException.class, () -> fullHandler.handle(ctx));
     }
 
     @Test
@@ -169,7 +169,7 @@ class CancellationTemplateTest {
         request.setPassengerIds(List.of(999L));
 
         CancellationContext ctx = new CancellationContext("PNR123", request);
-        assertThrows(CancellationInvalidException.class, () -> partialHandler.handle(ctx));
+        assertThrows(InvalidCancellationException.class, () -> partialHandler.handle(ctx));
     }
 
     @Test
@@ -181,7 +181,7 @@ class CancellationTemplateTest {
         request.setPassengerIds(List.of());
 
         CancellationContext ctx = new CancellationContext("PNR123", request);
-        assertThrows(CancellationInvalidException.class, () -> partialHandler.handle(ctx));
+        assertThrows(InvalidCancellationException.class, () -> partialHandler.handle(ctx));
     }
 
     private Booking createConfirmedBooking(Long bookingId, String pnr, int passengerCount) {

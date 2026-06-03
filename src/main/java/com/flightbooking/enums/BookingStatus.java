@@ -1,5 +1,12 @@
 package com.flightbooking.enums;
 
+// Booking state machine. canTransitionTo() encodes all valid transitions.
+//
+// INITIATED ──► SEAT_LOCKED ──► CONFIRMED ──► CANCELLED
+//      │               │
+//      └──► EXPIRED ◄──┘
+//
+// EXPIRED and CANCELLED are terminal states.
 public enum BookingStatus {
     INITIATED,
     SEAT_LOCKED,

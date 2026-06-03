@@ -66,7 +66,7 @@ class FlightBookingIntegrationTest {
 
     @Test
     void testFullBookingFlow() {
-        String pnr = initiateBooking("DEL", "BOM", 2, "A1", "A2");
+        String pnr = proceedBooking("DEL", "BOM", 2, "A1", "A2");
 
         ResponseEntity<BookingResponse> confirmResponse = restTemplate.postForEntity(
                 "/api/v1/bookings/" + pnr + "/confirm", null, BookingResponse.class);
@@ -87,7 +87,7 @@ class FlightBookingIntegrationTest {
 
     @Test
     void testPartialCancellation() {
-        String pnr = initiateBooking("DEL", "BOM", 2, "C1", "C2");
+        String pnr = proceedBooking("DEL", "BOM", 2, "C1", "C2");
         confirmBooking(pnr);
 
         ResponseEntity<BookingResponse> getResponse = restTemplate.getForEntity(
@@ -134,7 +134,7 @@ class FlightBookingIntegrationTest {
 
     @Test
     void testConfirmAlreadyCancelledBooking() {
-        String pnr = initiateBooking("DEL", "BOM", 1, "D1");
+        String pnr = proceedBooking("DEL", "BOM", 1, "D1");
         confirmBooking(pnr);
         cancelFull(pnr);
 
@@ -146,7 +146,7 @@ class FlightBookingIntegrationTest {
 
     @Test
     void testCancelAlreadyCancelledBooking() {
-        String pnr = initiateBooking("DEL", "BOM", 1, "E1");
+        String pnr = proceedBooking("DEL", "BOM", 1, "E1");
         confirmBooking(pnr);
         cancelFull(pnr);
 
@@ -207,7 +207,7 @@ class FlightBookingIntegrationTest {
         FlightResultDTO flight = searchResponse.getBody().getResults().get(0);
 
         // Lock the seat by doing a first booking
-        String pnr1 = initiateBooking("DEL", "BOM", 1, "F6");
+        String pnr1 = proceedBooking("DEL", "BOM", 1, "F6");
 
         BookingRequest bookingReq = new BookingRequest(
                 List.of(flight.getLegs().get(0).flightId()),
@@ -249,9 +249,9 @@ class FlightBookingIntegrationTest {
 
     private ResponseEntity<FlightSearchResponse> search(FlightSearchRequest request) {
         return restTemplate.exchange(
-                "/api/v1/flights/search?source={source}&destination={destination}&date={date}&passengers={passengers}",
+                "/api/v1/flights/search?source={source}&destination={destination}&date={date}&passengerCount={passengerCount}",
                 HttpMethod.GET, null, FlightSearchResponse.class,
-                request.getSource(), request.getDestination(), request.getDate(), request.getPassengers());
+                request.getSource(), request.getDestination(), request.getDate(), request.getPassengerCount());
     }
 
     private FlightResultDTO getFirstFlight(String source, String dest) {
@@ -259,7 +259,7 @@ class FlightBookingIntegrationTest {
         return response.getBody().getResults().get(0);
     }
 
-    private String initiateBooking(String source, String dest, int passengers, String... seats) {
+    private String proceedBooking(String source, String dest, int passengers, String... seats) {
         FlightResultDTO flight = getFirstFlight(source, dest);
 
         List<PassengerDTO> passengerList = new java.util.ArrayList<>();

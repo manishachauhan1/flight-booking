@@ -10,6 +10,9 @@ import org.springframework.stereotype.Service;
 
 import java.util.List;
 
+// Manages seat lifecycle: lock (PESSIMISTIC_WRITE), confirm, release.
+// Each lock call executes SELECT ... FOR UPDATE on the seat row,
+// preventing concurrent bookings of the same seat.
 @Service
 public class SeatLockService {
 

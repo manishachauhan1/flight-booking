@@ -66,7 +66,7 @@ class SeatLockServiceTest {
 
         seatLockService.lockAllSeatsForFlight(1L, List.of("A1"), 100L);
 
-        assertFalse(seat.getIsAvailable());
+        assertFalse(seat.getAvailable());
         assertEquals(100L, seat.getLockedByBookingId());
         assertNotNull(seat.getLockedUntil());
     }
@@ -94,7 +94,7 @@ class SeatLockServiceTest {
 
         seatLockService.confirmAllSeatsForFlight(1L, List.of("A1"));
 
-        assertFalse(seat.getIsAvailable());
+        assertFalse(seat.getAvailable());
         assertNull(seat.getLockedByBookingId());
         assertNull(seat.getLockedUntil());
     }
@@ -115,10 +115,10 @@ class SeatLockServiceTest {
 
         seatLockService.releaseSeatsByBooking(100L, 1L);
 
-        assertTrue(seat1.getIsAvailable());
+        assertTrue(seat1.getAvailable());
         assertNull(seat1.getLockedByBookingId());
         assertNull(seat1.getLockedUntil());
-        assertFalse(seat2.getIsAvailable());
+        assertFalse(seat2.getAvailable());
     }
 
     @Test
@@ -129,7 +129,7 @@ class SeatLockServiceTest {
 
         seatLockService.releaseSeatsByBookingAndNumbers(1L, List.of("A1"));
 
-        assertTrue(seat.getIsAvailable());
+        assertTrue(seat.getAvailable());
         assertNull(seat.getLockedByBookingId());
         assertNull(seat.getLockedUntil());
     }
@@ -140,7 +140,7 @@ class SeatLockServiceTest {
         Seat seat = new Seat();
         seat.setFlight(flight);
         seat.setSeatNumber(number);
-        seat.setIsAvailable(true);
+        seat.setAvailable(true);
         return seat;
     }
 }

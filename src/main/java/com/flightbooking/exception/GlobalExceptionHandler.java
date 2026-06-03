@@ -46,7 +46,7 @@ public class GlobalExceptionHandler {
         return buildResponse(HttpStatus.GONE, ex, request);
     }
 
-    @ExceptionHandler({IllegalBookingStateException.class, CancellationInvalidException.class})
+    @ExceptionHandler({IllegalBookingStateException.class, InvalidCancellationException.class})
     public ResponseEntity<ErrorResponse> handleBadRequest(BusinessException ex, WebRequest request) {
         return buildResponse(HttpStatus.BAD_REQUEST, ex, request);
     }

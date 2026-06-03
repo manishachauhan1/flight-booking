@@ -15,6 +15,10 @@ import java.util.List;
 import static com.flightbooking.Constants.HMAC_ALGORITHM;
 import static com.flightbooking.Constants.PRICE_FORMAT;
 
+// Generates and verifies HMAC-SHA256 price tokens.
+// Token = HMAC(sorted flight IDs + "|" + total price, secret).
+// Prevents price-manipulation: user sees a price during search, token binds them
+// to that price. If prices change by booking time, verification fails → 409.
 @Service
 public class PricingService {
 

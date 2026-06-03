@@ -15,7 +15,7 @@ public class BookingResponse {
     private Double totalAmount;
     private LocalDateTime createdAt;
     private LocalDateTime expiresAt;
-    private List<FlightResultDTO.FlightLegDTO> flights;
+    private List<FlightLegDTO> flights;
     private List<PassengerDTO> passengers;
 
     public BookingResponse() {}
@@ -28,7 +28,7 @@ public class BookingResponse {
         this.createdAt = booking.getCreatedAt();
         this.expiresAt = booking.getExpiresAt();
         this.flights = booking.getFlights().stream()
-                .map(FlightResultDTO.FlightLegDTO::new)
+                .map(FlightLegDTO::new)
                 .collect(Collectors.toList());
         this.passengers = booking.getPassengers().stream()
                 .map(p -> {
@@ -51,8 +51,8 @@ public class BookingResponse {
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
     public LocalDateTime getExpiresAt() { return expiresAt; }
     public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
-    public List<FlightResultDTO.FlightLegDTO> getFlights() { return flights; }
-    public void setFlights(List<FlightResultDTO.FlightLegDTO> flights) { this.flights = flights; }
+    public List<FlightLegDTO> getFlights() { return flights; }
+    public void setFlights(List<FlightLegDTO> flights) { this.flights = flights; }
     public List<PassengerDTO> getPassengers() { return passengers; }
     public void setPassengers(List<PassengerDTO> passengers) { this.passengers = passengers; }
 }

@@ -8,7 +8,7 @@ import com.flightbooking.entity.Flight;
 import com.flightbooking.entity.Passenger;
 import com.flightbooking.enums.BookingStatus;
 import com.flightbooking.exception.BookingNotFoundException;
-import com.flightbooking.exception.CancellationInvalidException;
+import com.flightbooking.exception.InvalidCancellationException;
 import com.flightbooking.repository.BookingRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +20,9 @@ import java.util.stream.Collectors;
 
 import static com.flightbooking.Constants.CANCEL_MSG;
 
+// Template Method: handle() defines the skeleton (find → validate → release → update).
+// Subclasses (FullCancellationHandler, PartialCancellationHandler) override the
+// abstract updateAfterCancellation() step.
 public abstract class CancellationTemplate implements CancellationHandler {
 
     private static final Logger log = LoggerFactory.getLogger(CancellationTemplate.class);
@@ -49,27 +52,29 @@ public abstract class CancellationTemplate implements CancellationHandler {
         return new CancellationResponse(pnr, booking.getStatus(), CANCEL_MSG);
     }
 
+    // Validates: booking status allows cancellation, no flights have departed,
+    // and (for partial) all passenger IDs exist in the booking.
     protected void validateCancellation(Booking booking, CancellationRequest request) {
         if (!booking.canTransitionTo(BookingStatus.CANCELLED)) {
-            throw new CancellationInvalidException(
+            throw new InvalidCancellationException(
                     "Booking " + booking.getPnr() + " is in " + booking.getStatus() + " state and cannot be cancelled");
         }
 
         boolean allFlightsDeparted = booking.getFlights().stream()
                 .allMatch(f -> f.getDepartureDateTime().isBefore(LocalDateTime.now()));
         if (allFlightsDeparted) {
-            throw new CancellationInvalidException("Cannot cancel booking after departure");
+            throw new InvalidCancellationException("Cannot cancel booking after departure");
         }
 
         if (request.isPartial()) {
             if (request.getPassengerIds() == null || request.getPassengerIds().isEmpty()) {
-                throw new CancellationInvalidException("Passenger IDs required for partial cancellation");
+                throw new InvalidCancellationException("Passenger IDs required for partial cancellation");
             }
             for (Long pid : request.getPassengerIds()) {
                 boolean exists = booking.getPassengers().stream()
                         .anyMatch(p -> p.getId().equals(pid));
                 if (!exists) {
-                    throw new CancellationInvalidException("Passenger " + pid + " not found in booking");
+                    throw new InvalidCancellationException("Passenger " + pid + " not found in booking");
                 }
             }
         }

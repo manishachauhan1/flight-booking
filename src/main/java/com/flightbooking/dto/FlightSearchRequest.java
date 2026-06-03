@@ -25,19 +25,20 @@ public class FlightSearchRequest {
     private LocalDate date;
 
     @Min(value = MIN_PASSENGERS, message = "At least 1 passenger required")
-    private int passengers = DEFAULT_PASSENGERS;
+    private int passengerCount = DEFAULT_PASSENGERS;
 
     private String tripType = DEFAULT_TRIP_TYPE;
     private String flightType = DEFAULT_FLIGHT_TYPE;
     private LocalDate returnDate;
+    private String airline;
 
     public FlightSearchRequest() {}
 
-    public FlightSearchRequest(String source, String destination, LocalDate date, int passengers) {
+    public FlightSearchRequest(String source, String destination, LocalDate date, int passengerCount) {
         this.source = source;
         this.destination = destination;
         this.date = date;
-        this.passengers = passengers;
+        this.passengerCount = passengerCount;
     }
 
     public String getSource() { return source; }
@@ -46,14 +47,16 @@ public class FlightSearchRequest {
     public void setDestination(String destination) { this.destination = destination; }
     public LocalDate getDate() { return date; }
     public void setDate(LocalDate date) { this.date = date; }
-    public int getPassengers() { return passengers; }
-    public void setPassengers(int passengers) { this.passengers = passengers; }
+    public int getPassengerCount() { return passengerCount; }
+    public void setPassengerCount(int passengerCount) { this.passengerCount = passengerCount; }
     public String getTripType() { return tripType; }
     public void setTripType(String tripType) { this.tripType = tripType; }
     public String getFlightType() { return flightType; }
     public void setFlightType(String flightType) { this.flightType = flightType; }
     public LocalDate getReturnDate() { return returnDate; }
     public void setReturnDate(LocalDate returnDate) { this.returnDate = returnDate; }
+    public String getAirline() { return airline; }
+    public void setAirline(String airline) { this.airline = airline; }
 
     public boolean isRoundTrip() {
         return TRIP_TYPE_ROUND_TRIP.equalsIgnoreCase(tripType);

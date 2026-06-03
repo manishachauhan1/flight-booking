@@ -5,15 +5,19 @@ import com.flightbooking.dto.FlightSearchRequest;
 import com.flightbooking.dto.FlightSearchResponse;
 import com.flightbooking.entity.Flight;
 import com.flightbooking.repository.FlightRepository;
+import com.flightbooking.service.search.RouteCache;
+import com.flightbooking.service.search.RouteKey;
+import com.flightbooking.service.search.RoutePath;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
-import java.util.*;
-import java.util.stream.Collectors;
-
-import static com.flightbooking.Constants.CONNECTING_FLIGHT_KEY_SEPARATOR;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 
 @Service
 public class FlightSearchService {
@@ -22,24 +26,58 @@ public class FlightSearchService {
 
     private final FlightRepository flightRepository;
     private final PricingService pricingService;
-    private final long minLayoverMinutes;
-    private final long maxLayoverMinutes;
+    private final RouteCache routeCache;
 
     public FlightSearchService(FlightRepository flightRepository, PricingService pricingService,
+                               @Value("${app.search.max-stops}") int maxStops,
                                @Value("${app.layover.min-minutes}") long minLayoverMinutes,
                                @Value("${app.layover.max-minutes}") long maxLayoverMinutes) {
         this.flightRepository = flightRepository;
         this.pricingService = pricingService;
-        this.minLayoverMinutes = minLayoverMinutes;
-        this.maxLayoverMinutes = maxLayoverMinutes;
+        this.routeCache = new RouteCache(maxStops, minLayoverMinutes, maxLayoverMinutes);
+    }
+
+    @PostConstruct
+    public void initializeRouteCache() {
+        rebuildCache();
+    }
+
+    @Scheduled(fixedRateString = "${app.search.cache-refresh-ms}")
+    public void refreshRouteCache() {
+        rebuildCache();
+    }
+
+    private void rebuildCache() {
+        List<Flight> allFlights = flightRepository.findAll();
+        routeCache.rebuild(allFlights);
+        log.info("Route cache rebuilt with {} flights, {} routes discovered",
+                allFlights.size(), countRoutes());
+    }
+
+    private long countRoutes() {
+        return 0;
     }
 
     public FlightSearchResponse search(FlightSearchRequest request) {
+        RouteKey key = new RouteKey(request.getSource(), request.getDestination(), request.getDate());
+        List<RoutePath> paths = routeCache.lookup(key);
+
         List<FlightResultDTO> results = new ArrayList<>();
-        results.addAll(findDirectFlights(request));
-        if (!request.isDirectOnly()) {
-            results.addAll(findConnectingFlights(request));
+        for (RoutePath path : paths) {
+            if (request.getAirline() != null &&
+                    path.segments().stream().anyMatch(f -> !f.getAirline().equalsIgnoreCase(request.getAirline()))) {
+                continue;
+            }
+            if (path.segments().stream().allMatch(f -> f.hasAvailableSeats(request.getPassengerCount()))) {
+                String token = pricingService.generatePriceToken(path.segments(), path.totalPrice());
+                results.add(new FlightResultDTO(path, token));
+            }
         }
+
+        if (request.isDirectOnly()) {
+            results.removeIf(r -> !r.isDirect());
+        }
+
         results.sort(Comparator.comparingDouble(FlightResultDTO::getTotalPrice));
 
         FlightSearchResponse response = new FlightSearchResponse();
@@ -48,48 +86,5 @@ public class FlightSearchService {
         log.info("Search {} -> {} on {}: found {} results",
                 request.getSource(), request.getDestination(), request.getDate(), results.size());
         return response;
-    }
-
-    private List<FlightResultDTO> findDirectFlights(FlightSearchRequest request) {
-        return flightRepository
-                .findBySourceAndDestinationAndDepartureDate(request.getSource(), request.getDestination(), request.getDate())
-                .stream()
-                .filter(f -> f.hasAvailableSeats(request.getPassengers()))
-                .map(f -> new FlightResultDTO(f, pricingService.generatePriceToken(List.of(f), f.getPrice())))
-                .collect(Collectors.toList());
-    }
-
-    private List<FlightResultDTO> findConnectingFlights(FlightSearchRequest request) {
-        List<Flight> fromSource = flightRepository.findBySourceAndDepartureDate(
-                request.getSource(), request.getDate());
-        List<Flight> toDestination = flightRepository.findByDestinationAndDepartureDate(
-                request.getDestination(), request.getDate());
-
-        Map<String, List<Flight>> destIndex = toDestination.stream()
-                .filter(f -> f.hasAvailableSeats(request.getPassengers()))
-                .collect(Collectors.groupingBy(Flight::getSource));
-
-        Set<String> seen = new HashSet<>();
-        List<FlightResultDTO> results = new ArrayList<>();
-
-        for (Flight leg1 : fromSource) {
-            if (!leg1.hasAvailableSeats(request.getPassengers())) continue;
-            List<Flight> candidates = destIndex.get(leg1.getDestination());
-            if (candidates == null) continue;
-
-            for (Flight leg2 : candidates) {
-                long layover = java.time.Duration.between(
-                        leg1.getArrivalDateTime(), leg2.getDepartureDateTime()).toMinutes();
-                if (layover < minLayoverMinutes || layover > maxLayoverMinutes) continue;
-
-                String key = leg1.getId() + CONNECTING_FLIGHT_KEY_SEPARATOR + leg2.getId();
-                if (!seen.add(key)) continue;
-
-                double totalPrice = leg1.getPrice() + leg2.getPrice();
-                String token = pricingService.generatePriceToken(List.of(leg1, leg2), totalPrice);
-                results.add(new FlightResultDTO(leg1, leg2, token));
-            }
-        }
-        return results;
     }
 }
